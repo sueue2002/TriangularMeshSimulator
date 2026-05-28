@@ -1,7 +1,7 @@
 import { CanvasRenderer } from "./canvasRenderer";
-import { smoothUniformLaplacian } from "./smoothing";
+import { compareSmoothingMethods, smoothMesh } from "./smoothing";
 import { triangulate } from "./triangulation";
-import type { MeshStats, Point, Triangle } from "./types";
+import type { MeshStats, MethodComparison, Point, SmoothingMethod, Triangle } from "./types";
 
 const DEFAULT_POINTS: Point[] = [
   { id: 0, x: 160, y: 140 },
@@ -9,6 +9,7 @@ const DEFAULT_POINTS: Point[] = [
   { id: 2, x: 540, y: 190 },
   { id: 3, x: 220, y: 340 },
   { id: 4, x: 450, y: 360 },
+  { id: 5, x: 330, y: 255 },
 ];
 
 export class MeshApp {
@@ -16,12 +17,16 @@ export class MeshApp {
   private readonly renderer: CanvasRenderer;
   private readonly smoothButton: HTMLButtonElement;
   private readonly resetButton: HTMLButtonElement;
+  private readonly compareButton: HTMLButtonElement;
+  private readonly methodSelect: HTMLSelectElement;
   private readonly lambdaSlider: HTMLInputElement;
   private readonly lambdaValue: HTMLElement;
   private readonly fixBoundaryCheckbox: HTMLInputElement;
   private readonly statsValues: Record<keyof MeshStats, HTMLElement>;
+  private readonly comparisonBody: HTMLTableSectionElement;
   private points: Point[] = DEFAULT_POINTS.map((point) => ({ ...point }));
   private triangles: Triangle[] = triangulate(this.points);
+  private comparisonResults: MethodComparison[] = [];
   private iterations = 0;
   private processingTimeMs = 0;
   private nextId = DEFAULT_POINTS.length;
@@ -42,6 +47,14 @@ export class MeshApp {
         <main class="layout">
           <section class="toolbar" aria-label="Mesh controls">
             <button class="primary-button" type="button" data-action="smooth">Smooth 1 Step</button>
+            <label class="select-control">
+              <span>Method</span>
+              <select data-role="method">
+                <option value="forward-euler">Forward Euler</option>
+                <option value="backward-euler">Backward Euler</option>
+                <option value="cotangent">Cotangent Laplacian</option>
+              </select>
+            </label>
             <label class="slider-control">
               <span>lambda <strong data-role="lambda-value">0.50</strong></span>
               <input data-role="lambda" type="range" min="0" max="1" step="0.05" value="0.5" />
@@ -50,6 +63,7 @@ export class MeshApp {
               <input data-role="fix-boundary" type="checkbox" checked />
               <span>Fix boundary vertices</span>
             </label>
+            <button class="secondary-button" type="button" data-action="compare">Compare Methods</button>
             <button class="secondary-button" type="button" data-action="reset">Reset</button>
           </section>
 
@@ -62,6 +76,22 @@ export class MeshApp {
             <div><span>Vertices</span><strong data-stat="vertices">0</strong></div>
             <div><span>Triangles</span><strong data-stat="triangles">0</strong></div>
             <div><span>Last time</span><strong data-stat="processingTimeMs">0.00 ms</strong></div>
+            <section class="comparison" aria-label="Method comparison">
+              <h2>Method comparison</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Method</th>
+                    <th>Avg move</th>
+                    <th>Max move</th>
+                    <th>Time</th>
+                  </tr>
+                </thead>
+                <tbody data-role="comparison-body">
+                  <tr><td colspan="4">Run comparison</td></tr>
+                </tbody>
+              </table>
+            </section>
           </aside>
         </main>
       </div>
@@ -71,9 +101,12 @@ export class MeshApp {
     this.renderer = new CanvasRenderer(this.canvas);
     this.smoothButton = this.requireElement(root, "[data-action='smooth']", HTMLButtonElement);
     this.resetButton = this.requireElement(root, "[data-action='reset']", HTMLButtonElement);
+    this.compareButton = this.requireElement(root, "[data-action='compare']", HTMLButtonElement);
+    this.methodSelect = this.requireElement(root, "[data-role='method']", HTMLSelectElement);
     this.lambdaSlider = this.requireElement(root, "[data-role='lambda']", HTMLInputElement);
     this.lambdaValue = this.requireElement(root, "[data-role='lambda-value']", HTMLElement);
     this.fixBoundaryCheckbox = this.requireElement(root, "[data-role='fix-boundary']", HTMLInputElement);
+    this.comparisonBody = this.requireElement(root, "[data-role='comparison-body']", HTMLTableSectionElement);
     this.statsValues = {
       iterations: this.requireElement(root, "[data-stat='iterations']", HTMLElement),
       vertices: this.requireElement(root, "[data-stat='vertices']", HTMLElement),
@@ -87,6 +120,7 @@ export class MeshApp {
 
   private bindEvents(): void {
     this.smoothButton.addEventListener("click", () => this.smooth());
+    this.compareButton.addEventListener("click", () => this.compareMethods());
     this.resetButton.addEventListener("click", () => this.reset());
     this.lambdaSlider.addEventListener("input", () => {
       this.lambdaValue.textContent = this.lambda.toFixed(2);
@@ -155,11 +189,32 @@ export class MeshApp {
       return;
     }
 
-    const start = performance.now();
-    this.points = smoothUniformLaplacian(this.points, this.triangles, this.lambda, this.fixBoundaryCheckbox.checked);
+    const result = smoothMesh(
+      this.points,
+      this.triangles,
+      this.lambda,
+      this.fixBoundaryCheckbox.checked,
+      this.selectedMethod,
+    );
+    this.points = result.points;
     this.retriangulate();
-    this.processingTimeMs = performance.now() - start;
+    this.processingTimeMs = result.processingTimeMs;
     this.iterations += 1;
+    this.comparisonResults = [];
+    this.render();
+  }
+
+  private compareMethods(): void {
+    if (this.triangles.length === 0) {
+      return;
+    }
+
+    this.comparisonResults = compareSmoothingMethods(
+      this.points,
+      this.triangles,
+      this.lambda,
+      this.fixBoundaryCheckbox.checked,
+    );
     this.render();
   }
 
@@ -168,6 +223,7 @@ export class MeshApp {
     this.nextId = DEFAULT_POINTS.length;
     this.iterations = 0;
     this.processingTimeMs = 0;
+    this.comparisonResults = [];
     this.draggedVertexId = null;
     this.hoveredVertexId = null;
     this.retriangulate();
@@ -185,6 +241,7 @@ export class MeshApp {
       fixBoundary: this.fixBoundaryCheckbox.checked,
     });
     this.updateStats();
+    this.updateComparison();
   }
 
   private updateStats(): void {
@@ -196,6 +253,30 @@ export class MeshApp {
 
   private get lambda(): number {
     return Number.parseFloat(this.lambdaSlider.value);
+  }
+
+  private get selectedMethod(): SmoothingMethod {
+    return this.methodSelect.value as SmoothingMethod;
+  }
+
+  private updateComparison(): void {
+    if (this.comparisonResults.length === 0) {
+      this.comparisonBody.innerHTML = `<tr><td colspan="4">Run comparison</td></tr>`;
+      return;
+    }
+
+    this.comparisonBody.innerHTML = this.comparisonResults
+      .map(
+        (result) => `
+          <tr>
+            <td>${result.label}</td>
+            <td>${result.averageDisplacement.toFixed(2)} px</td>
+            <td>${result.maxDisplacement.toFixed(2)} px</td>
+            <td>${result.processingTimeMs.toFixed(2)} ms</td>
+          </tr>
+        `,
+      )
+      .join("");
   }
 
   private requireElement<T extends HTMLElement>(

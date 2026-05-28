@@ -18,7 +18,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -68,7 +69,7 @@ h1 {
 
 .layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr) 220px;
+  grid-template-columns: 250px minmax(0, 1fr) 320px;
   gap: 16px;
   min-height: 0;
   flex: 1;
@@ -111,6 +112,7 @@ h1 {
 }
 
 .slider-control,
+.select-control,
 .check-control {
   display: grid;
   gap: 8px;
@@ -127,6 +129,16 @@ h1 {
 .slider-control input {
   width: 100%;
   accent-color: #0f766e;
+}
+
+.select-control select {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  color: #172033;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
 }
 
 .check-control {
@@ -184,6 +196,42 @@ canvas.is-over-mesh {
   color: #172033;
   font-size: 1.45rem;
   line-height: 1;
+}
+
+.comparison {
+  display: grid;
+  gap: 10px;
+}
+
+.comparison h2 {
+  margin: 0;
+  color: #172033;
+  font-size: 0.95rem;
+}
+
+.comparison table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.comparison th,
+.comparison td {
+  padding: 7px 5px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: right;
+  vertical-align: top;
+}
+
+.comparison th:first-child,
+.comparison td:first-child {
+  text-align: left;
+}
+
+.comparison th {
+  color: #667085;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 @media (max-width: 900px) {

@@ -1,20 +1,19 @@
 # Triangular Mesh Smoothing
 
-A browser-based teaching app for exploring triangular mesh generation and Uniform Laplacian Smoothing.
+ブラウザ上で三角形メッシュ生成とメッシュスムージングを試せる教材用アプリです。
 
-## Usage
+## 使い方
 
-Open the app in a browser, then use the canvas and controls:
+- キャンバスの空いている場所をクリックすると頂点を追加できます。
+- 頂点をドラッグすると形状を変更できます。
+- **Smooth 1 Step** を押すと、選択中の手法で 1 ステップだけスムージングします。
+- **Method** で前進オイラー法、後退オイラー法、余接ラプラシアンを切り替えられます。
+- **lambda** でスムージング強度を調整できます。
+- **Fix boundary vertices** をオンにすると、凸包上の境界頂点を固定します。
+- **Compare Methods** を押すと、各手法の平均変位、最大変位、処理時間を比較できます。
 
-- Click empty canvas space to add a vertex.
-- Drag a vertex to move it.
-- Press **Smooth 1 Step** to apply one Uniform Laplacian Smoothing step.
-- Adjust **lambda** to change the smoothing strength.
-- Toggle **Fix boundary vertices** to keep convex-hull vertices fixed during smoothing.
-- Watch the statistics panel for iteration count, vertex count, triangle count, and processing time.
+頂点の追加、移動、スムージング後は自動で三角形分割を更新します。
 
-The app automatically retriangulates the mesh after vertices are added, moved, or smoothed.
+## 概要
 
-## About
-
-This is a static Vite + TypeScript web app using Canvas for 2D rendering. It is intended as a small visual aid for learning how simple mesh smoothing changes vertex positions.
+Vite + TypeScript で作成した静的 Web アプリです。2D 表示には Canvas を使用しています。
